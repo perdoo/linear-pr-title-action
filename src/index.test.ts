@@ -15,7 +15,7 @@ describe("getIssueIdFromBranchName", () => {
     });
 
     test('it should work with other teams', () => {
-        const branchName = "nonfeature/pro-397-something";
+        const branchName = "feature/pro-397-something";
         const issueId = getIssueIdFromBranchName(branchName);
         expect(issueId).toBe("PRO-397");
     });
