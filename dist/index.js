@@ -32,45 +32,82 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getIssueIdFromBranchName = void 0;
+exports.getLinearIssueIds = void 0;
 const core = __importStar(require("@actions/core"));
 const github = __importStar(require("@actions/github"));
 const sdk_1 = require("@linear/sdk");
 const lodash_1 = require("lodash");
 const PR_TITLE_UPDATE_KEYWORD = "x";
-const getIssueIdFromBranchName = (branchName) => {
-    const match = branchName.match(/^feature\/([a-z]+\-\d+)\-/);
-    if ((0, lodash_1.isNil)(match))
-        return null;
-    const branchStoryId = match[1];
-    return branchStoryId.toUpperCase();
+const getLinearIssueIds = (pullRequest) => {
+    const issueIds = [];
+    // From the branch name
+    const branchName = pullRequest.head.ref;
+    let match = branchName.match(/^([a-z]+\-\d+)\-/);
+    if (!(0, lodash_1.isNil)(match))
+        issueIds.push(match[1].toUpperCase());
+    // From the PR body
+    const body = (0, lodash_1.isNil)(pullRequest.body) ? "" : pullRequest.body;
+    const bodyRegex = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
+    match = bodyRegex.exec(body);
+    while (match != null) {
+        issueIds.push(match[1] || match[2]);
+        match = bodyRegex.exec(body);
+    }
+    return issueIds;
 };
-exports.getIssueIdFromBranchName = getIssueIdFromBranchName;
-const getTitleFromStoryId = (linearClient, issueId) => __awaiter(void 0, void 0, void 0, function* () {
-    const issue = yield linearClient.issue(issueId);
-    return issue.title;
-});
-const updatePrTitle = (linearClient, octokit, pullRequest) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getLinearIssueIds = getLinearIssueIds;
+const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(void 0, void 0, void 0, function* () {
     if (pullRequest.title != PR_TITLE_UPDATE_KEYWORD) {
         core.info(`PR title isn't set to keyword '${PR_TITLE_UPDATE_KEYWORD}'.`);
-        return;
+        return pullRequest.title;
     }
+    const issue = yield linearClient.issue(issueId);
+    const parentIssue = yield issue.parent;
+    const project = yield issue.project;
+    let title = project ? `${project.name} | ` : "";
+    title += issue.title;
+    title += parentIssue ? ` < ${parentIssue.title}` : "";
+    return title;
+});
+const getBodyWithIssues = (linearClient, pullRequest, issueIds) => __awaiter(void 0, void 0, void 0, function* () {
+    let body = (0, lodash_1.isNil)(pullRequest.body) ? "" : pullRequest.body;
+    let previousIssueUrl = null;
+    for (const issueId in issueIds) {
+        const issue = yield linearClient.issue(issueId);
+        if (!body.includes(issue.url)) {
+            const markdownUrl = `Linear: [${issue.title}](${issue.url})`;
+            if (previousIssueUrl) {
+                body = body.replace(`](${previousIssueUrl})`, `](${previousIssueUrl})\n${markdownUrl}`);
+            }
+            else {
+                body = `${markdownUrl}\n${body}`;
+            }
+        }
+        previousIssueUrl = issue.url;
+    }
+    return body;
+});
+const updatePrTitleAndBody = (linearClient, octokit, pullRequest) => __awaiter(void 0, void 0, void 0, function* () {
     if ((0, lodash_1.isNil)(pullRequest.head.repo)) {
         // `.head.repo` can be null.
         // Reference: https://github.com/octokit/rest.js/issues/31#issue-860734069
         core.info(`PR is sourced from an "unknown repository".`);
         return;
     }
-    const issueId = (0, exports.getIssueIdFromBranchName)(pullRequest.head.ref);
-    if ((0, lodash_1.isNil)(issueId)) {
-        core.info("PR isn't linked to any Linear issue.");
+    const issueIds = (0, exports.getLinearIssueIds)(pullRequest);
+    if (!issueIds.length) {
+        core.info("PR isn't linked to any Linear issues.");
         return;
+    }
+    else {
+        core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
     }
     const data = {
         repo: pullRequest.head.repo.name,
         owner: pullRequest.head.repo.owner.login,
         pull_number: pullRequest.number,
-        title: yield getTitleFromStoryId(linearClient, issueId),
+        title: yield getTitleFromIssueId(linearClient, pullRequest, issueIds[0]),
+        body: yield getBodyWithIssues(linearClient, pullRequest, issueIds),
     };
     yield octokit.rest.pulls.update(data);
 });
@@ -80,9 +117,11 @@ function run() {
             const linearApiKey = core.getInput("linearApiKey");
             const ghToken = core.getInput("ghToken");
             const linearClient = new sdk_1.LinearClient({
-                apiKey: linearApiKey
+                apiKey: linearApiKey,
             });
             const octokit = github.getOctokit(ghToken);
+            core.setSecret("linearApiKey");
+            core.setSecret("ghToken");
             const { number: prNumber, repository } = github.context.payload;
             if ((0, lodash_1.isNil)(repository))
                 return;
@@ -91,9 +130,7 @@ function run() {
                 owner: repository.owner.login,
                 pull_number: prNumber,
             });
-            core.setSecret("linearApiKey");
-            core.setSecret("ghToken");
-            yield updatePrTitle(linearClient, octokit, pullRequest);
+            yield updatePrTitleAndBody(linearClient, octokit, pullRequest);
         }
         catch (error) {
             core.setFailed(error.message);
