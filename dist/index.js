@@ -39,6 +39,7 @@ const sdk_1 = require("@linear/sdk");
 const lodash_1 = require("lodash");
 const PR_TITLE_UPDATE_KEYWORD = "x";
 const getLinearIssueIds = (pullRequest) => {
+    var _a;
     const issueIds = [];
     // From the branch name
     const branchName = pullRequest.head.ref;
@@ -46,13 +47,10 @@ const getLinearIssueIds = (pullRequest) => {
     if (!(0, lodash_1.isNil)(match))
         issueIds.push(match[1].toUpperCase());
     // From the PR body
-    const body = (0, lodash_1.isNil)(pullRequest.body) ? "" : pullRequest.body;
-    const bodyRegex = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
-    match = bodyRegex.exec(body);
-    while (match != null) {
-        issueIds.push(match[1] || match[2]);
-        match = bodyRegex.exec(body);
-    }
+    const body = (_a = pullRequest.body) !== null && _a !== void 0 ? _a : "";
+    const regexp = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
+    const matches = [...body.matchAll(regexp)];
+    matches.map((match) => issueIds.push((match[1] || match[2]).toUpperCase()));
     return issueIds;
 };
 exports.getLinearIssueIds = getLinearIssueIds;
@@ -76,7 +74,7 @@ const getBodyWithIssues = (linearClient, pullRequest, issueIds) => __awaiter(voi
         const issue = yield linearClient.issue(issueId);
         if (!body.includes(issue.url)) {
             const markdownUrl = `Linear: [${issue.title}](${issue.url})`;
-            if (previousIssueUrl) {
+            if (!(0, lodash_1.isNil)(previousIssueUrl)) {
                 body = body.replace(`](${previousIssueUrl})`, `](${previousIssueUrl})\n${markdownUrl}`);
             }
             else {
@@ -99,9 +97,7 @@ const updatePrTitleAndBody = (linearClient, octokit, pullRequest) => __awaiter(v
         core.info("PR isn't linked to any Linear issues.");
         return;
     }
-    else {
-        core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
-    }
+    core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
     const data = {
         repo: pullRequest.head.repo.name,
         owner: pullRequest.head.repo.owner.login,
@@ -116,12 +112,12 @@ function run() {
         try {
             const linearApiKey = core.getInput("linearApiKey");
             const ghToken = core.getInput("ghToken");
+            core.setSecret("linearApiKey");
+            core.setSecret("ghToken");
             const linearClient = new sdk_1.LinearClient({
                 apiKey: linearApiKey,
             });
             const octokit = github.getOctokit(ghToken);
-            core.setSecret("linearApiKey");
-            core.setSecret("ghToken");
             const { number: prNumber, repository } = github.context.payload;
             if ((0, lodash_1.isNil)(repository))
                 return;

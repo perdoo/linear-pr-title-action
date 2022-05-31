@@ -29,13 +29,13 @@ export const getLinearIssueIds = (pullRequest: PullRequest) => {
   if (!isNil(match)) issueIds.push(match[1].toUpperCase());
 
   // From the PR body
-  const body = isNil(pullRequest.body) ? "" : pullRequest.body;
-  const bodyRegex = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
-  match = bodyRegex.exec(body);
-  while (match != null) {
-    issueIds.push(match[1] || match[2]);
-    match = bodyRegex.exec(body);
-  }
+  const body = pullRequest.body ?? "";
+  const regexp = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
+  const matches = [...body.matchAll(regexp)];
+
+  matches.map((match: string[]) =>
+    issueIds.push((match[1] || match[2]).toUpperCase())
+  );
 
   return issueIds;
 };
@@ -75,7 +75,7 @@ const getBodyWithIssues = async (
     if (!body.includes(issue.url)) {
       const markdownUrl = `Linear: [${issue.title}](${issue.url})`;
 
-      if (previousIssueUrl) {
+      if (!isNil(previousIssueUrl)) {
         body = body.replace(
           `](${previousIssueUrl})`,
           `](${previousIssueUrl})\n${markdownUrl}`
@@ -108,9 +108,8 @@ const updatePrTitleAndBody = async (
   if (!issueIds.length) {
     core.info("PR isn't linked to any Linear issues.");
     return;
-  } else {
-    core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
   }
+  core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
 
   const data = {
     repo: pullRequest.head.repo.name,
