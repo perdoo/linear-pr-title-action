@@ -33,9 +33,7 @@ export const getLinearIssueIds = (pullRequest: PullRequest) => {
   const regexp = /Fixes ([a-z]+\-\d+)|Resolves ([a-z]+\-\d+)/gi;
   const matches = [...body.matchAll(regexp)];
 
-  matches.map((match: string[]) =>
-    issueIds.push((match[1] || match[2]).toUpperCase())
-  );
+  matches.map((match) => issueIds.push((match[1] || match[2]).toUpperCase()));
 
   return issueIds;
 };
