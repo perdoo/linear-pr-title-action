@@ -51,9 +51,15 @@ const getTitleFromIssueId = async (
     return pullRequest.title;
   }
 
+  core.info(`Calculating title from issue ${issueId}`);
   const issue = await linearClient.issue(issueId);
+  core.info(`Fetched issue ${issue.title}`);
   const parentIssue = await issue.parent;
+  if (!isNil(parentIssue))
+    core.info(`Fetched parent issue ${parentIssue.title}`);
   const project = await issue.project;
+  if (!isNil(project))
+    core.info(`Fetched project ${project.name}`);
 
   let title = project ? `${project.name} | ` : "";
   title += issue.title;
@@ -69,6 +75,8 @@ const getBodyWithIssues = async (
 ) => {
   let body = isNil(pullRequest.body) ? "" : pullRequest.body;
   let previousIssueUrl: string | null = null;
+
+  core.info(`Calculating body from issues: ${issueIds.join(", ")}`);
 
   for (const issueId in issueIds) {
     const issue = await linearClient.issue(issueId);
@@ -112,12 +120,16 @@ const updatePrTitleAndBody = async (
   }
   core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
 
+  const title = await getTitleFromIssueId(linearClient, pullRequest, issueIds[0]);
+  core.info(`Inferred title: ${title}`);
+  const body = await getBodyWithIssues(linearClient, pullRequest, issueIds);
+  core.info(`Inferred body: ${body}`);
   const data = {
     repo: pullRequest.head.repo.name,
     owner: pullRequest.head.repo.owner.login,
     pull_number: pullRequest.number,
-    title: await getTitleFromIssueId(linearClient, pullRequest, issueIds[0]),
-    body: await getBodyWithIssues(linearClient, pullRequest, issueIds),
+    title,
+    body,
   };
 
   await octokit.rest.pulls.update(data);
