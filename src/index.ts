@@ -78,7 +78,7 @@ const getBodyWithIssues = async (
 
   core.info(`Calculating body from issues: ${issueIds.join(", ")}`);
 
-  for (const issueId in issueIds) {
+  for (const issueId of issueIds) {
     const issue = await linearClient.issue(issueId);
 
     if (!body.includes(issue.url)) {
