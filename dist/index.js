@@ -62,9 +62,15 @@ const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(vo
         core.info(`PR title isn't set to keyword '${PR_TITLE_UPDATE_KEYWORD}'.`);
         return pullRequest.title;
     }
+    core.info(`Calculating title from issue ${issueId}`);
     const issue = yield linearClient.issue(issueId);
+    core.info(`Fetched issue ${issue.title}`);
     const parentIssue = yield issue.parent;
+    if (!(0, lodash_1.isNil)(parentIssue))
+        core.info(`Fetched parent issue ${parentIssue.title}`);
     const project = yield issue.project;
+    if (!(0, lodash_1.isNil)(project))
+        core.info(`Fetched project ${project.name}`);
     let title = project ? `${project.name} | ` : "";
     title += issue.title;
     title += parentIssue ? ` < ${parentIssue.title}` : "";
@@ -73,6 +79,7 @@ const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(vo
 const getBodyWithIssues = (linearClient, pullRequest, issueIds) => __awaiter(void 0, void 0, void 0, function* () {
     let body = (0, lodash_1.isNil)(pullRequest.body) ? "" : pullRequest.body;
     let previousIssueUrl = null;
+    core.info(`Calculating body from issues: ${issueIds.join(", ")}`);
     for (const issueId in issueIds) {
         const issue = yield linearClient.issue(issueId);
         if (!body.includes(issue.url)) {
@@ -101,12 +108,16 @@ const updatePrTitleAndBody = (linearClient, octokit, pullRequest) => __awaiter(v
         return;
     }
     core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
+    const title = yield getTitleFromIssueId(linearClient, pullRequest, issueIds[0]);
+    core.info(`Inferred title: ${title}`);
+    const body = yield getBodyWithIssues(linearClient, pullRequest, issueIds);
+    core.info(`Inferred body: ${body}`);
     const data = {
         repo: pullRequest.head.repo.name,
         owner: pullRequest.head.repo.owner.login,
         pull_number: pullRequest.number,
-        title: yield getTitleFromIssueId(linearClient, pullRequest, issueIds[0]),
-        body: yield getBodyWithIssues(linearClient, pullRequest, issueIds),
+        title,
+        body,
     };
     yield octokit.rest.pulls.update(data);
 });
