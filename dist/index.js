@@ -80,7 +80,7 @@ const getBodyWithIssues = (linearClient, pullRequest, issueIds) => __awaiter(voi
     let body = (0, lodash_1.isNil)(pullRequest.body) ? "" : pullRequest.body;
     let previousIssueUrl = null;
     core.info(`Calculating body from issues: ${issueIds.join(", ")}`);
-    for (const issueId in issueIds) {
+    for (const issueId of issueIds) {
         const issue = yield linearClient.issue(issueId);
         if (!body.includes(issue.url)) {
             const markdownUrl = `Linear: [${issue.title}](${issue.url})`;
