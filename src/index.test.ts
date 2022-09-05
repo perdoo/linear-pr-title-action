@@ -1,4 +1,4 @@
-import { getLinearIssueIds } from ".";
+import { getBodyWithIssues, getLinearIssueIds } from ".";
 
 const getPullRequest = (branchName: string, body: string | null) => {
   return {
@@ -15,6 +15,13 @@ const getPullRequest = (branchName: string, body: string | null) => {
       },
     },
   };
+};
+
+const mockLinearClient = {
+  issue: (issueId: string) => Promise.resolve({
+    title: "some issue title",
+    url: "https://example.org/some-issue",
+  }),
 };
 
 describe("getLinearIssueIds", () => {
@@ -76,5 +83,16 @@ describe("getLinearIssueIds", () => {
     const pullRequest = getPullRequest(branchName, body);
     const issueIds = getLinearIssueIds(pullRequest);
     expect(issueIds).toEqual(["ENG-397", "ENG-454"]);
+  });
+
+  it("should replace manually added issue id with a link", async () => {
+    const branchName = "foo";
+    const body = "hi!\nfixes eng-123\nbye!";
+    const pullRequest = getPullRequest(branchName, body);
+    const issueIds = getLinearIssueIds(pullRequest);
+    // @ts-expect-error is not an actual LinearClinet but doesn't matter
+    const newBody = await getBodyWithIssues(mockLinearClient, pullRequest, issueIds);
+
+    expect(newBody).toEqual("Linear: [some issue title](https://example.org/some-issue)\nhi!\nbye!");
   });
 });

@@ -68,7 +68,7 @@ const getTitleFromIssueId = async (
   return title;
 };
 
-const getBodyWithIssues = async (
+export const getBodyWithIssues = async (
   linearClient: LinearClient,
   pullRequest: PullRequest,
   issueIds: string[]
