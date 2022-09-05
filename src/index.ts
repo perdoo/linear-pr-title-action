@@ -94,6 +94,13 @@ const getBodyWithIssues = async (
       }
     }
 
+    // once we add a link, remove the manual "fixes ENG-123", if any, to avoid duplication.
+    const issueIdRegex = new RegExp(`(fixes|resolves) ${issueId}\n`, "i");
+
+    if (issueIdRegex.test(body)) {
+      body = body.replace(issueIdRegex, "");
+    }
+
     previousIssueUrl = issue.url;
   }
 
