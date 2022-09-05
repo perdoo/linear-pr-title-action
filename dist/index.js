@@ -32,7 +32,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLinearIssueIds = void 0;
+exports.getBodyWithIssues = exports.getLinearIssueIds = void 0;
 const core = __importStar(require("@actions/core"));
 const github = __importStar(require("@actions/github"));
 const sdk_1 = require("@linear/sdk");
@@ -91,10 +91,16 @@ const getBodyWithIssues = (linearClient, pullRequest, issueIds) => __awaiter(voi
                 body = `${markdownUrl}\n${body}`;
             }
         }
+        // once we add a link, remove the manual "fixes ENG-123", if any, to avoid duplication.
+        const issueIdRegex = new RegExp(`(fixes|resolves) ${issueId}\n`, "i");
+        if (issueIdRegex.test(body)) {
+            body = body.replace(issueIdRegex, "");
+        }
         previousIssueUrl = issue.url;
     }
     return body;
 });
+exports.getBodyWithIssues = getBodyWithIssues;
 const updatePrTitleAndBody = (linearClient, octokit, pullRequest) => __awaiter(void 0, void 0, void 0, function* () {
     if ((0, lodash_1.isNil)(pullRequest.head.repo)) {
         // `.head.repo` can be null.
@@ -110,7 +116,7 @@ const updatePrTitleAndBody = (linearClient, octokit, pullRequest) => __awaiter(v
     core.info(`PR linked to Linear issues: ${issueIds.join(", ")}.`);
     const title = yield getTitleFromIssueId(linearClient, pullRequest, issueIds[0]);
     core.info(`Inferred title: ${title}`);
-    const body = yield getBodyWithIssues(linearClient, pullRequest, issueIds);
+    const body = yield (0, exports.getBodyWithIssues)(linearClient, pullRequest, issueIds);
     core.info(`Inferred body: ${body}`);
     const data = {
         repo: pullRequest.head.repo.name,
