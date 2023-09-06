@@ -82,7 +82,7 @@ const getTitleFromIssueId = async (
   if (!isNil(parentIssue) && isNil(prefix))
     prefix = await getConventionalCommitPrefix(parentIssue);
 
-  let title = prefix;
+  let title = prefix ?? "";
   title += project ? `${project.name} | ` : "";
   title += issue.title;
   title += parentIssue ? ` < ${parentIssue.title}` : "";

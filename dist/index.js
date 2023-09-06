@@ -90,7 +90,7 @@ const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(vo
     let prefix = yield getConventionalCommitPrefix(issue);
     if (!(0, lodash_1.isNil)(parentIssue) && (0, lodash_1.isNil)(prefix))
         prefix = yield getConventionalCommitPrefix(parentIssue);
-    let title = prefix;
+    let title = prefix !== null && prefix !== void 0 ? prefix : "";
     title += project ? `${project.name} | ` : "";
     title += issue.title;
     title += parentIssue ? ` < ${parentIssue.title}` : "";
