@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { LinearClient } from "@linear/sdk";
+import { Issue, LinearClient } from "@linear/sdk";
 import { isNil } from "lodash";
 
 const PR_TITLE_UPDATE_KEYWORD = "x";
@@ -41,6 +41,24 @@ export const getLinearIssueIds = (pullRequest: PullRequest) => {
   return issueIds;
 };
 
+/**
+ * @see https://www.conventionalcommits.org/en/v1.0.0/
+ */
+const getConventionalCommitPrefix = async (issue: Issue) => {
+  const labels = await issue.labels();
+
+  const isBug = labels.nodes.some(label => /bug/i.test(label.name));
+  if (isBug) return "fix: ";
+  
+  const isChore = labels.nodes.some(label => /chore/i.test(label.name));
+  if (isChore) return "chore: ";
+
+  const isFeature = labels.nodes.some(label => /feature/i.test(label.name));
+  if (isFeature) return "feat: ";
+
+  return null;
+}
+
 const getTitleFromIssueId = async (
   linearClient: LinearClient,
   pullRequest: PullRequest,
@@ -60,8 +78,12 @@ const getTitleFromIssueId = async (
   const project = await issue.project;
   if (!isNil(project))
     core.info(`Fetched project ${project.name}`);
+  let prefix = await getConventionalCommitPrefix(issue);
+  if (!isNil(parentIssue) && isNil(prefix))
+    prefix = await getConventionalCommitPrefix(parentIssue);
 
-  let title = project ? `${project.name} | ` : "";
+  let title = prefix;
+  title += project ? `${project.name} | ` : "";
   title += issue.title;
   title += parentIssue ? ` < ${parentIssue.title}` : "";
 

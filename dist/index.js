@@ -57,6 +57,22 @@ const getLinearIssueIds = (pullRequest) => {
     return issueIds;
 };
 exports.getLinearIssueIds = getLinearIssueIds;
+/**
+ * @see https://www.conventionalcommits.org/en/v1.0.0/
+ */
+const getConventionalCommitPrefix = (issue) => __awaiter(void 0, void 0, void 0, function* () {
+    const labels = yield issue.labels();
+    const isBug = labels.nodes.some(label => /bug/i.test(label.name));
+    if (isBug)
+        return "fix: ";
+    const isChore = labels.nodes.some(label => /chore/i.test(label.name));
+    if (isChore)
+        return "chore: ";
+    const isFeature = labels.nodes.some(label => /feature/i.test(label.name));
+    if (isFeature)
+        return "feat: ";
+    return null;
+});
 const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(void 0, void 0, void 0, function* () {
     if (pullRequest.title != PR_TITLE_UPDATE_KEYWORD) {
         core.info(`PR title isn't set to keyword '${PR_TITLE_UPDATE_KEYWORD}'.`);
@@ -71,7 +87,11 @@ const getTitleFromIssueId = (linearClient, pullRequest, issueId) => __awaiter(vo
     const project = yield issue.project;
     if (!(0, lodash_1.isNil)(project))
         core.info(`Fetched project ${project.name}`);
-    let title = project ? `${project.name} | ` : "";
+    let prefix = yield getConventionalCommitPrefix(issue);
+    if (!(0, lodash_1.isNil)(parentIssue) && (0, lodash_1.isNil)(prefix))
+        prefix = yield getConventionalCommitPrefix(parentIssue);
+    let title = prefix;
+    title += project ? `${project.name} | ` : "";
     title += issue.title;
     title += parentIssue ? ` < ${parentIssue.title}` : "";
     return title;
